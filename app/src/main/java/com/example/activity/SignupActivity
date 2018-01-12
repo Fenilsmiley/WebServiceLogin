@@ -1,0 +1,93 @@
+package com.example.fenil.prinil.actvity;
+
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
+import android.support.v7.app.AlertDialog;
+import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
+import android.support.v7.widget.Toolbar;
+import android.view.View;
+import android.widget.TextView;
+
+import com.example.fenil.prinil.fragment_signup.EmailSignUpFragment;
+import com.example.fenil.prinil.fragment_signup.RegistrationFragment;
+import com.example.fenil.prinil.fragment_signup.SignupFragment;
+import com.example.fenil.prinil.R;
+import com.example.fenil.prinil.util.Constants;
+
+public class SignupActivity extends AppCompatActivity {
+
+    private TextView txt_login;
+    private SignupFragment signupFragment;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_signup);
+
+        signupFragment = new SignupFragment();
+        FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+        ft.replace(R.id.frame_signup, signupFragment,Constants.TAG_FRAGMENT);
+        ft.commit();
+
+
+        //region findView (Widget)
+        txt_login = (TextView) findViewById(R.id.txt_login);
+        //endregion
+
+        //region Button click Listener
+        txt_login.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent i =new Intent(SignupActivity.this,LoginActivity.class);
+                i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(i);
+                finish();
+            }
+        });
+        //endregion
+
+    }
+    //region onBackPressed
+    @Override
+    public void onBackPressed() {
+        Fragment fragment = getSupportFragmentManager().findFragmentByTag(Constants.TAG_FRAGMENT);
+
+
+        if (getSupportFragmentManager().getBackStackEntryCount() != 0) {
+            if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
+
+                if(fragment instanceof RegistrationFragment){
+
+                    AlertDialog alertbox = new AlertDialog.Builder(this)
+                            .setMessage("Do you want to cancel registration ?")
+                            .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+
+                                // do something when the button is clicked
+                                public void onClick(DialogInterface arg0, int arg1) {
+
+                                    SignupActivity.super.onBackPressed();
+                                }
+                            })
+                            .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface arg0, int arg1) {
+                                }
+                            })
+                            .show();
+                } else {
+                    getSupportFragmentManager().popBackStack();
+                }
+
+            }else{
+                super.onBackPressed();
+            }
+        }else{
+            super.onBackPressed();
+        }
+
+    }
+    //endregion
+
+}
