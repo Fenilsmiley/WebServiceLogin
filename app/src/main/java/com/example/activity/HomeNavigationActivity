@@ -1,0 +1,392 @@
+package com.example.fenil.prinil.actvity;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.os.Bundle;
+import android.os.Handler;
+import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.Snackbar;
+import android.util.Log;
+import android.view.View;
+import android.support.design.widget.NavigationView;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBarDrawerToggle;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.example.fenil.prinil.R;
+import com.example.fenil.prinil.fragment_profile.ProfileDispFragment;
+import com.example.fenil.prinil.model.UserRegister;
+import com.example.fenil.prinil.util.Constants;
+import com.example.fenil.prinil.util.PrefUtil;
+import com.example.fenil.prinil.util.SnackBar;
+import com.example.fenil.prinil.webutil.JSONHelper;
+import com.example.fenil.prinil.webutil.OnAsyncLoader;
+import com.google.android.gms.auth.api.Auth;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
+import com.google.gson.Gson;
+import com.squareup.picasso.Picasso;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.Calendar;
+
+import de.hdodenhof.circleimageview.CircleImageView;
+
+
+public class HomeNavigationActivity extends AppCompatActivity
+        implements NavigationView.OnNavigationItemSelectedListener {
+
+    Activity context = HomeNavigationActivity.this;
+    String TAG = getClass().getSimpleName();
+    private boolean isExit=false;
+    private String Mobile;
+    private String Email;
+    private boolean isGoogle;
+    private boolean isFacebook;
+    private String FacebookId;
+    private String GoogleId;
+    private String Password;
+    private String UserType;
+    private String UserId;
+    private UserRegister userRegister;
+    private View headeView;
+    private TextView tv_name;
+    private TextView tv_email;
+    private CircleImageView profile_pic;
+    private ImageView cover_pic;
+    private ProfileDispFragment fragment;
+    private GoogleApiClient mGoogleApiClient;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_home_navigation);
+
+       //region toolbar
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        //endregion
+
+        //region Floating button
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
+                        .setAction("Action", null).show();
+            }
+        });
+        //endregion
+
+        //region navigation drawer
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
+                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+        drawer.addDrawerListener(toggle);
+        toggle.syncState();
+
+        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        headeView = navigationView.getHeaderView(0);
+
+        navigationView.setNavigationItemSelectedListener(this);
+        //endregion
+
+        //region find View(widget)
+        tv_name = (TextView) headeView.findViewById(R.id.userId);
+        tv_email = (TextView) headeView.findViewById(R.id.et_email);
+        profile_pic = (CircleImageView) headeView.findViewById(R.id.img_profile);
+        cover_pic = (ImageView) headeView.findViewById(R.id.img_cover);
+        //loginButton = (LoginButton) findViewById(R.id.login_button);
+        //endregion
+
+        getPrefData();
+
+        userRegister = new UserRegister();
+
+        loadNavHeader();
+    }
+
+    //region getPrefData
+    void getPrefData(){
+
+        try {
+            Mobile = PrefUtil.getstringPref(Constants.PUT_Phone_IN_PREF,context);
+            Email = PrefUtil.getstringPref(Constants.PUT_EMAIL_IN_PREF, context);
+            isGoogle = PrefUtil.getbooleanPref(Constants.PRE_LOGINCHECK_GOOGLE,context);
+            isFacebook = PrefUtil.getbooleanPref(Constants.PRE_LOGINCHECK_FACEBOOK,context);
+            GoogleId = PrefUtil.getstringPref(Constants.PRE_GOOGLE_ID,context);
+            FacebookId = PrefUtil.getstringPref(Constants.PRE_FACEBOOK_ID,context);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (Constants.isCheckInternetcon(context)){
+            if (Mobile != null && Mobile!= "") {
+                UserType = "2";
+                Password = PrefUtil.getstringPref(Constants.PUT_Password_IN_PREF, context);
+                UserId = Mobile;
+                SetDetails(UserId, Password, UserType);
+            } else if (Email != null && Email !="") {
+                UserType = "1";
+                Password = PrefUtil.getstringPref(Constants.PUT_Password_IN_PREF, context);
+                UserId = Email;
+                SetDetails(UserId, Password, UserType);
+            } else if (isGoogle){
+                UserType = "4";
+                UserId = GoogleId;
+                Password = "0";
+                SetDetails(UserId, Password, UserType);
+            }else if (isFacebook){
+                UserType = "3";
+                UserId = FacebookId;
+                Password = "0";
+                SetDetails(UserId, Password, UserType);
+            }
+        }else {
+            //region offline data
+            SnackBar.makeLong(context, "No Internet Connection. Please check your internet connection");
+
+            Gson gson = new Gson();
+            String json = PrefUtil.getstringPref(Constants.Put_Model_In_PREF, context);
+            userRegister = gson.fromJson(json, UserRegister.class);
+
+            tv_name.setText(userRegister.getFirstName()+" "+userRegister.getLastName());
+            tv_email.setText(userRegister.getEmailId());
+
+            profile_pic.setImageResource(R.drawable.user);
+
+            //endregion
+        }
+    }
+    //endregion
+
+    //  region Json Select Method (set value in Model class)
+    public void SetDetails(final String UserId, final String Password, final String UserType) {
+
+        JSONHelper helper = new JSONHelper(context, Constants.BASE_URL + Constants.SelectUserMasterByUserName+"/" + UserId + "/" + Password + "/" + UserType,new OnAsyncLoader() {
+            @Override
+            public void onResult(String result) throws JSONException {
+                Log.i(TAG, "onResult: " + result);
+                userRegister = new UserRegister();
+
+                JSONObject object = new JSONObject(result);
+
+                JSONObject object1 = object.getJSONObject("SelectUserMasterByUserNameResult");
+
+                int getphone = object1.getInt("UserMasterId");
+
+                if (getphone != 0) {
+                    userRegister.setFirstName(object1.getString("FirstName"));
+                    userRegister.setLastName(object1.getString("LastName"));
+                    userRegister.setPassword(object1.getString("Password"));
+                    userRegister.setPhone(object1.getString("Phone"));
+                    userRegister.setGender(object1.getString("Gender"));
+                    userRegister.setBirthday(object1.getString("DateOfBirth"));
+                    userRegister.setEmailId(object1.getString("Email"));
+                    userRegister.setProfilePhysicalBytes(object1.getString("ProfileImageImageNameBytes"));
+                    userRegister.setEmailVerify(object1.getString("IsEmailVerify"));
+                    userRegister.setPhoneVerify(object1.getString("IsSMSVerify"));
+                    if (!userRegister.getProfilePhysicalBytes().equals("") && userRegister.getProfilePhysicalBytes() != null && userRegister.getProfilePhysicalBytes() != "null") {
+                        Picasso.with(context).load(userRegister.getProfilePhysicalBytes()).placeholder(R.drawable.user).into(profile_pic);
+                    } else {
+                        profile_pic.setImageResource(R.drawable.user);
+                    }
+
+                    Log.e(TAG, "user" + userRegister.toString());
+
+                    //region offline put data
+                    try {
+                        Gson gson = new Gson();
+                        String json = gson.toJson(userRegister);
+                        PrefUtil.putstringPref(Constants.Put_Model_In_PREF,json,context);
+                    }catch (Exception e){
+                        e.printStackTrace();
+                    }
+                    //endregion
+
+                    loadNavHeader();
+                } else {
+
+                }
+            }
+        });
+        helper.execute();
+    }
+    //endregion
+
+    // region LoadNavHeader method (Name & profile pic)
+    private void loadNavHeader() {
+
+        if (userRegister.getFirstName() != null && userRegister.getLastName() != null && userRegister.getFirstName() != "" && userRegister.getLastName() != "") {
+            tv_name.setText(userRegister.getFirstName() + " " + userRegister.getLastName());
+            tv_email.setText(userRegister.getEmailId());
+            Calendar calendar = Calendar.getInstance();
+
+        }else {
+            profile_pic.setImageResource(R.drawable.user);
+        }
+    }
+    //endregion
+
+    //region option
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.home_navigation, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        //noinspection SimplifiableIfStatement
+        if (id == R.id.action_settings) {
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+    //endregion
+
+    //region  Navigation Item click Method
+    @SuppressWarnings("StatementWithEmptyBody")
+    @Override
+    public boolean onNavigationItemSelected(MenuItem item) {
+        // Handle navigation view item clicks here.
+        int id = item.getItemId();
+
+        if (id == R.id.home) {
+            // Handle the camera action
+        } else if (id == R.id.nav_gallery) {
+
+        } else if (id == R.id.nav_slideshow) {
+
+        } else if (id == R.id.nav_manage) {
+
+        } else if (id == R.id.profile) {
+            getPrefData();
+            startActivity(new Intent(context,ProfileActivity.class));
+            getSupportActionBar().setTitle("Profile");
+        } else if (id == R.id.feedback) {
+
+        } else if (id == R.id.contact) {
+            /*fragment_contact = new ContactFragment();
+            android.support.v4.app.FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+            ft.add(R.id.frame_layout, fragment_contact);
+            ft.commit();
+            getSupportActionBar().setTitle("Contact");*/
+        } else if (id == R.id.about) {
+            /*fragment_about = new AboutFragment();
+            FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+            ft.add(R.id.frame_layout, fragment_about);
+            ft.commit();
+            getSupportActionBar().setTitle("About");*/
+        } else if (id == R.id.rate) {
+            /*fragment1 = new RateFragment();
+            android.support.v4.app.FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+            ft.add(R.id.frame_layout, fragment1);
+            ft.commit();
+            getSupportActionBar().setTitle("Rate");*/
+        } else if (id == R.id.logout) {
+
+            if (isGoogle){
+                try {
+                   signOut();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Toast.makeText(context, ""+e, Toast.LENGTH_SHORT).show();
+                }
+            }else if (isFacebook){
+//                LoginManager.getInstance().logOut();
+                PrefUtil.clearBoolean(Constants.PRE_LOGINCHECK_FACEBOOK, false, context);
+                PrefUtil.RemoveString(context);
+                Intent i = new Intent(context, LoginActivity.class);
+                startActivity(i);
+                finish();
+            }else {
+                PrefUtil.clearBoolean(Constants.PRE_LOGINCHECK, false, context);
+                PrefUtil.RemoveString(context);
+                startActivity(new Intent(context, LoginActivity.class));
+                finish();
+                return true;
+            }
+
+        }
+
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        drawer.closeDrawer(GravityCompat.START);
+        return true;
+    }
+    //endregion
+
+    //region Google Sign Out
+    private void signOut() {
+        /*mGoogleSignInClient.signOut()
+                .addOnCompleteListener(this, new OnCompleteListener<Void>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Void> task) {
+                        // ...
+                        PrefUtil.clearBoolean(Constants.PRE_LOGINCHECK_GOOGLE, false, context);
+                        PrefUtil.RemoveString(context);
+                        Intent i = new Intent(context, LoginActivity.class);
+                        startActivity(i);
+                        finish();
+                    }
+                });*/
+
+        Auth.GoogleSignInApi.signOut(mGoogleApiClient).setResultCallback(
+                new ResultCallback<Status>() {
+                    @Override
+                    public void onResult(Status status) {
+                        mGoogleApiClient.disconnect();
+                        PrefUtil.clearBoolean(Constants.PRE_LOGINCHECK_GOOGLE, false, context);
+                        PrefUtil.RemoveString(context);
+                        Intent i = new Intent(context, LoginActivity.class);
+                        startActivity(i);
+                        finish();
+                    }
+                });
+    }
+    //endregion
+
+
+    //region onBackedPressed Method
+    @Override
+    public void onBackPressed() {
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        if (drawer.isDrawerOpen(GravityCompat.START)) {
+            drawer.closeDrawer(GravityCompat.START);
+        } else {
+            if (isExit) {
+                moveTaskToBack(true);
+                android.os.Process.killProcess(android.os.Process.myPid());
+                System.exit(1);
+            }
+            this.isExit = true;
+            Toast.makeText(this, "Press back again to Exit", Toast.LENGTH_SHORT).show();
+
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    isExit=false;
+                }
+            }, 2000);
+
+        }
+    }
+    //endregion back Pressed
+
+}
