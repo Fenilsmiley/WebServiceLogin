@@ -1,0 +1,298 @@
+package com.example.fenil.prinil.fragment_profile;
+
+
+import android.os.Bundle;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import com.example.fenil.prinil.R;
+import com.example.fenil.prinil.actvity.ProfileActivity;
+import com.example.fenil.prinil.model.UserRegister;
+import com.example.fenil.prinil.util.Constants;
+import com.example.fenil.prinil.util.PrefUtil;
+import com.example.fenil.prinil.util.SnackBar;
+import com.example.fenil.prinil.webutil.JSONHelper;
+import com.example.fenil.prinil.webutil.OnAsyncLoader;
+import com.google.gson.Gson;
+import com.squareup.picasso.Picasso;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import de.hdodenhof.circleimageview.CircleImageView;
+
+
+/**
+ * A simple {@link Fragment} subclass.
+ */
+public class ProfileDispFragment extends Fragment {
+
+
+    private ImageView cover_image;
+    private TextView txt_gender;
+    private TextView txt_birthday;
+    private TextView txt_email_second;
+    private TextView txt_mobile;
+    private TextView txt_email;
+    private TextView txt_name;
+    private CircleImageView profile_image;
+    private String Mobile;
+    private String Email;
+    private boolean isGoogle;
+    private boolean isFacebook;
+    private String GoogleId;
+    private String FacebookId;
+    private String UserType;
+    private String Password;
+    private String UserId;
+    private UserRegister userRegister;
+    private Toolbar toolbar;
+
+
+
+    public ProfileDispFragment() {
+        // Required empty public constructor
+    }
+
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        // Inflate the layout for this fragment
+        View view = inflater.inflate(R.layout.fragment_profile_display, container, false);
+
+        //region toolbar
+        Toolbar toolbar = (Toolbar) view.findViewById(R.id.toolbar);
+        toolbar.setTitle("Display Profile");
+        toolbar.setTitleTextColor(getResources().getColor(R.color.white));
+        ((AppCompatActivity)getActivity()).setSupportActionBar(toolbar);
+        toolbar.setNavigationIcon(R.drawable.ic_back);
+        toolbar.setNavigationOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                getActivity().onBackPressed();
+            }
+        });
+
+        //endregion
+
+        cover_image = (ImageView) view.findViewById(R.id.header_cover_image);
+        profile_image = (CircleImageView) view.findViewById(R.id.image_profile);
+        txt_name = (TextView) view.findViewById(R.id.txtName);
+        txt_email = (TextView) view.findViewById(R.id.txtEmail);
+        txt_mobile = (TextView) view.findViewById(R.id.txtMobile);
+        txt_email_second = (TextView) view.findViewById(R.id.txtEmail_second);
+        txt_birthday = (TextView) view.findViewById(R.id.txtBirthDay);
+        txt_gender= (TextView) view.findViewById(R.id.txtGender);
+
+        getPrefData();
+        userRegister = new UserRegister();
+        setHasOptionsMenu(true);
+        return view;
+    }
+
+    //region getPrefData
+    void getPrefData(){
+
+        try {
+            Mobile = PrefUtil.getstringPref(Constants.PUT_Phone_IN_PREF,getActivity());
+            Email = PrefUtil.getstringPref(Constants.PUT_EMAIL_IN_PREF, getActivity());
+            isGoogle = PrefUtil.getbooleanPref(Constants.PRE_LOGINCHECK_GOOGLE,getActivity());
+            isFacebook = PrefUtil.getbooleanPref(Constants.PRE_LOGINCHECK_FACEBOOK,getActivity());
+            GoogleId = PrefUtil.getstringPref(Constants.PRE_GOOGLE_ID,getActivity());
+            FacebookId = PrefUtil.getstringPref(Constants.PRE_FACEBOOK_ID,getActivity());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (Constants.isCheckInternetcon(getActivity())){
+            //region online data
+            if (Mobile != null && Mobile!= "") {
+                UserType = "2";
+                Password = PrefUtil.getstringPref(Constants.PUT_Password_IN_PREF, getActivity());
+                UserId = Mobile;
+                SetDetails(UserId, Password, UserType);
+            } else if (Email != null && Email !="") {
+                UserType = "1";
+                Password = PrefUtil.getstringPref(Constants.PUT_Password_IN_PREF, getActivity());
+                UserId = Email;
+                SetDetails(UserId, Password, UserType);
+            } else if (isGoogle){
+                UserType = "4";
+                UserId = GoogleId;
+                Password = "0";
+                SetDetails(UserId, Password, UserType);
+            }else if (isFacebook){
+                UserType = "3";
+                UserId = FacebookId;
+                Password = "0";
+                SetDetails(UserId, Password, UserType);
+            }
+            //endregion
+        }else {
+            //region offline data
+            SnackBar.makeLong(getActivity(), "No Internet Connection. Please check your internet connection");
+
+            Gson gson = new Gson();
+            String json = PrefUtil.getstringPref(Constants.Put_Model_In_PREF, getActivity());
+            userRegister = gson.fromJson(json, UserRegister.class);
+
+            txt_name.setText(userRegister.getFirstName()+" "+userRegister.getLastName());
+            if (userRegister.getPhone()!= null && userRegister.getPhone()!= "")
+            {
+                txt_mobile.setText(userRegister.getPhone());
+                txt_mobile.setVisibility(View.VISIBLE);
+            }else {
+                txt_mobile.setVisibility(View.VISIBLE);
+            }
+            if (userRegister.getEmailId()!= null && !userRegister.getEmailId().isEmpty()){
+                txt_email_second.setText(userRegister.getEmailId());
+                txt_email_second.setVisibility(View.VISIBLE);
+            }else {
+                txt_email_second.setVisibility(View.GONE);
+            }
+            txt_email.setText(userRegister.getEmailId());
+            if (userRegister.getBirthday() != null && userRegister.getBirthday() !=""){
+                txt_birthday.setText(userRegister.getBirthday());
+                txt_birthday.setVisibility(View.VISIBLE);
+            }else {
+                txt_birthday.setVisibility(View.GONE);
+            }
+            if (userRegister.getGender()!=null && userRegister.getGender()!= ""){
+                txt_gender.setText(userRegister.getGender());
+                txt_gender.setVisibility(View.VISIBLE);
+            }else {
+                txt_gender.setVisibility(View.GONE);
+            }
+            profile_image.setImageResource(R.drawable.user);
+
+            //endregion
+        }
+    }
+    //endregion
+
+    //  region Json Select Method (set value in Model class)
+    public void SetDetails(final String UserId, final String Password, final String UserType) {
+
+        JSONHelper helper = new JSONHelper(getActivity(), Constants.BASE_URL + Constants.SelectUserMasterByUserName+"/" + UserId + "/" + Password + "/" + UserType,new OnAsyncLoader() {
+            @Override
+            public void onResult(String result) throws JSONException {
+                Log.i("TAG", "onResult: " + result);
+                userRegister = new UserRegister();
+
+                JSONObject object = new JSONObject(result);
+                JSONObject object1 = object.getJSONObject("SelectUserMasterByUserNameResult");
+
+                int getphone = object1.getInt("UserMasterId");
+                if (getphone != 0) {
+
+                    //region Set data in model class
+                    userRegister.setBirthday(object1.getString("DateOfBirth"));
+                    userRegister.setEmailId(object1.getString("Email"));
+                    userRegister.setFirstName(object1.getString("FirstName"));
+                    userRegister.setLastName(object1.getString("LastName"));
+                    userRegister.setGender(object1.getString("Gender"));
+                    userRegister.setPhone(object1.getString("Phone"));
+                    userRegister.setId(object1.getInt("UserMasterId"));
+                    userRegister.setEmailVerify(object1.getString("IsEmailVerify"));
+                    userRegister.setPhoneVerify(object1.getString("IsSMSVerify"));
+                    userRegister.setProfilePhysicalBytes(object1.getString("ProfileImageImageNameBytes"));
+
+                    if (!userRegister.getProfilePhysicalBytes().equals("") && userRegister.getProfilePhysicalBytes() != null && userRegister.getProfilePhysicalBytes() != "null") {
+                        Picasso.with(getActivity()).load(userRegister.getProfilePhysicalBytes()).placeholder(R.drawable.user).into(profile_image);
+                    } else {
+                        profile_image.setImageResource(R.drawable.user);
+                    }
+                    //endregion
+                    //region Set data in TextView
+
+                    txt_email.setText(Email);
+
+                    if (userRegister.getPhone()!= null && !userRegister.getPhone().isEmpty()){
+                        txt_mobile.setText(userRegister.getPhone());
+                        txt_mobile.setVisibility(View.VISIBLE);
+                    }else {
+                        txt_mobile.setVisibility(View.GONE);
+                    }
+                    if (userRegister.getEmailId()!= null && !userRegister.getEmailId().isEmpty()){
+                        txt_email_second.setText(userRegister.getEmailId());
+                        txt_email_second.setVisibility(View.VISIBLE);
+                    }else {
+                        txt_email_second.setVisibility(View.GONE);
+                    }
+                    txt_name.setText(userRegister.getFirstName()+" "+userRegister.getLastName());
+                    if (userRegister.getBirthday() != null && userRegister.getBirthday() !=""){
+                        txt_birthday.setText(userRegister.getBirthday());
+                        txt_birthday.setVisibility(View.VISIBLE);
+                    }else {
+                        txt_birthday.setVisibility(View.GONE);
+                    }
+                    if (userRegister.getGender() != null && userRegister.getGender() != ""){
+                        txt_gender.setText(userRegister.getGender());
+                        txt_gender.setVisibility(View.VISIBLE);
+                    }else {
+                        txt_gender.setVisibility(View.GONE);
+                    }
+                    //endregion
+
+
+                    //region offline put data
+                    try{
+                        Gson gson = new Gson();
+                        String json = gson.toJson(userRegister);
+                        PrefUtil.putstringPref(Constants.Put_Model_In_PREF, json, getActivity());
+                    }catch (Exception e){
+                        e.printStackTrace();
+                    }
+                    //endregion
+                } else {
+
+                }
+            }
+        });
+        helper.execute();
+    }
+    //endregion
+
+
+    //region
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        menu.findItem(R.id.save).setVisible(false);
+        menu.findItem(R.id.edit).setVisible(true);
+        super.onCreateOptionsMenu(menu, inflater);
+    }
+
+    /*@Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.edit:
+                ProfileEditFragment fragment = new ProfileEditFragment();
+                FragmentTransaction ft = getFragmentManager().beginTransaction();
+                ft.replace(R.id.frame_profile,fragment,Constants.TAG_FRAGMENT);
+                ft.addToBackStack(null);
+                ft.commit();
+                break;
+        }
+        return true;
+    }*/
+    public void edit(){
+        ProfileEditFragment fragment = new ProfileEditFragment();
+        FragmentTransaction ft = getFragmentManager().beginTransaction();
+        ft.replace(R.id.frame_profile,fragment,Constants.TAG_FRAGMENT);
+        ft.addToBackStack(null);
+        ft.commit();
+    }
+  //endregion
+}
