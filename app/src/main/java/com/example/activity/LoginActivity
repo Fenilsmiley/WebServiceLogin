@@ -1,0 +1,113 @@
+package com.example.fenil.prinil.actvity;
+
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.support.v4.app.Fragment;
+import android.support.v7.app.AlertDialog;
+import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
+import android.util.Base64;
+import android.util.Log;
+import android.view.View;
+import android.widget.TextView;
+
+import com.example.fenil.prinil.fragment_login.LoginFragment;
+import com.example.fenil.prinil.R;
+import com.example.fenil.prinil.fragment_login.PasswordFragment;
+import com.example.fenil.prinil.fragment_signup.RegistrationFragment;
+import com.example.fenil.prinil.fragment_signup.SignupFragment;
+import com.example.fenil.prinil.util.Constants;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
+public class LoginActivity extends AppCompatActivity {
+
+    private TextView txt_sign_up;
+    private LoginFragment loginFragment;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_login);
+
+       // getHashkey();
+
+        loginFragment = new LoginFragment();
+        android.support.v4.app.FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+        ft.replace(R.id.frame_login,loginFragment,Constants.TAG_FRAGMENT);
+        ft.commit();
+
+        txt_sign_up = (TextView) findViewById(R.id.txt_sign_up);
+
+        txt_sign_up.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent i =new Intent(LoginActivity.this,SignupActivity.class);
+                i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(i);
+                finish();
+            }
+        });
+    }
+    //region hash print
+   /* public void getHashkey(){
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(getApplicationContext().getPackageName(), PackageManager.GET_SIGNATURES);
+            for (android.content.pm.Signature signature : info.signatures) {
+                MessageDigest md = MessageDigest.getInstance("SHA");
+                md.update(signature.toByteArray());
+
+                Log.i("Base64", Base64.encodeToString(md.digest(), Base64.NO_WRAP));
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.d("Name not found", e.getMessage(), e);
+
+        } catch (NoSuchAlgorithmException e) {
+            Log.d("Error", e.getMessage(), e);
+        }
+    }*/
+    //endregion
+
+    //region onBackPressed
+    @Override
+    public void onBackPressed() {
+        Fragment fragment = getSupportFragmentManager().findFragmentByTag(Constants.TAG_FRAGMENT);
+
+
+        if (getSupportFragmentManager().getBackStackEntryCount() != 0) {
+            if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
+
+                if(fragment instanceof PasswordFragment){
+                    AlertDialog alertbox = new AlertDialog.Builder(this)
+                            .setMessage("Do you want to cancel reset password ?")
+                            .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+
+                                // do something when the button is clicked
+                                public void onClick(DialogInterface arg0, int arg1) {
+
+                                    LoginActivity.super.onBackPressed();
+                                }
+                            })
+                            .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface arg0, int arg1) {
+                                }
+                            })
+                            .show();
+                    /*super.onBackPressed();*/
+                }else {
+                    super.onBackPressed();
+                }
+
+            }else{
+                super.onBackPressed();
+            }
+        }else{
+            super.onBackPressed();
+        }
+
+    }
+    //endregion
+}
