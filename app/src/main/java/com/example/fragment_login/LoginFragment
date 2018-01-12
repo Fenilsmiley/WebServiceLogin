@@ -1,0 +1,526 @@
+package com.example.fenil.prinil.fragment_login;
+
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.text.InputType;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.example.fenil.prinil.BuildConfig;
+import com.example.fenil.prinil.R;
+import com.example.fenil.prinil.actvity.HomeNavigationActivity;
+import com.example.fenil.prinil.actvity.LoginActivity;
+import com.example.fenil.prinil.actvity.SignupActivity;
+import com.example.fenil.prinil.model.UserRegister;
+import com.example.fenil.prinil.util.Constants;
+import com.example.fenil.prinil.util.PrefUtil;
+import com.example.fenil.prinil.util.SnackBar;
+import com.example.fenil.prinil.webutil.JSONHelper;
+import com.example.fenil.prinil.webutil.OnAsyncLoader;
+import com.facebook.AccessToken;
+import com.facebook.CallbackManager;
+import com.facebook.FacebookCallback;
+import com.facebook.FacebookException;
+import com.facebook.FacebookSdk;
+import com.facebook.GraphRequest;
+import com.facebook.GraphResponse;
+import com.facebook.login.Login;
+import com.facebook.login.LoginResult;
+import com.facebook.login.widget.LoginButton;
+import com.google.android.gms.auth.api.Auth;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.auth.api.signin.GoogleSignInResult;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.FirebaseAuth;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.JSONStringer;
+
+import java.util.HashMap;
+
+import static com.example.fenil.prinil.util.Constants.PRE_GOOGLE_ID;
+import static com.example.fenil.prinil.util.Constants.PRE_LOGINCHECK_GOOGLE;
+import static com.facebook.FacebookSdk.getApplicationContext;
+
+
+/**
+ * A simple {@link Fragment} subclass.
+ */
+public class LoginFragment extends Fragment implements View.OnClickListener, GoogleApiClient.OnConnectionFailedListener {
+
+
+    private EditText et_email_phone;
+    private EditText et_password;
+    private TextView tv_forgot;
+    private Button btn_login;
+    private Button btn_facebook;
+    private Button btn_google;
+    private UserRegister userRegister;
+    private CallbackManager callbackManager;
+    private LoginButton btnFacebook;
+    private int RC_SIGN_IN = 1;
+    private String TAG = getClass().getSimpleName();
+    private String InsertUserMaster = "InsertUserMaster";
+    private GoogleApiClient mGoogleApiClient;
+    private LoginButton loginButton;
+    private FirebaseAuth.AuthStateListener mAuthListener;
+    private TextView tv_error_email_phone;
+    private TextView tv_error_password;
+    private ForgotPasswordFragment forgotPasswordFragment;
+    private Toolbar toolbar;
+    private Button eye_button;
+
+    public LoginFragment() {
+        // Required empty public constructor
+    }
+
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        // Inflate the layout for this fragment
+        View view = inflater.inflate(R.layout.fragment_login, container, false);
+        ;
+        FacebookSdk.sdkInitialize(getApplicationContext());
+        callbackManager = CallbackManager.Factory.create();
+
+        //region toolbar
+        Toolbar toolbar = (Toolbar) view.findViewById(R.id.toolbar);
+        toolbar.setTitle("LogIn");
+        toolbar.setTitleTextColor(getResources().getColor(R.color.white));
+        ((AppCompatActivity)getActivity()).setSupportActionBar(toolbar);
+        toolbar.setNavigationIcon(R.drawable.ic_back);
+        toolbar.setNavigationOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                getActivity().onBackPressed();
+            }
+        });
+        //endregion
+
+        btnFacebook = (LoginButton) view.findViewById(R.id.login_button);
+
+        //region  Connection Condition
+        if (Constants.isCheckInternetcon(getActivity())) {
+
+        } else {
+            SnackBar.makeLong(getActivity(), "No Internet Connection. Please check your internet connection");
+        }
+        //endregion
+        //region find view(widget)
+        loginButton = (LoginButton) view.findViewById(R.id.login_button);
+        et_email_phone = (EditText) view.findViewById(R.id.et_email_phone);
+        et_password = (EditText) view.findViewById(R.id.et_password);
+        tv_forgot = (TextView) view.findViewById(R.id.tv_forgot);
+        btn_login = (Button) view.findViewById(R.id.btn_login);
+        btn_facebook = (Button) view.findViewById(R.id.btn_facebook);
+        btn_google = (Button) view.findViewById(R.id.btn_google);
+        eye_button = (Button) view.findViewById(R.id.eyeButton);
+
+        tv_error_email_phone = (TextView) view.findViewById(R.id.tv_errror_email_phone);
+        tv_error_password = (TextView) view.findViewById(R.id.tv_error_password);
+        //endregion
+        //region button Click listener
+        btn_google.setOnClickListener(this);
+        btn_facebook.setOnClickListener(this);
+        tv_forgot.setOnClickListener(this);
+        btn_login.setOnClickListener(this);
+        //endregion
+        //region password show listener
+        eye_button.setOnTouchListener(new View.OnTouchListener() {
+                                          @Override
+                                          public boolean onTouch(View v, MotionEvent event) {
+                                              switch ( event.getAction() ) {
+                                                  case MotionEvent.ACTION_DOWN:
+                                                      et_password.setInputType(InputType.TYPE_CLASS_TEXT);
+                                                      break;
+                                                  case MotionEvent.ACTION_UP:
+                                                      et_password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                                                      break;
+                                              }
+                                              return true;
+                                          }
+                                      }
+        );
+        //endregion
+        // region GetData Preference
+        if (PrefUtil.getbooleanPref(Constants.done, getActivity())) {
+            startActivity(new Intent(getActivity(), HomeNavigationActivity.class));
+        }
+        //endregion
+
+        //region Facebook integration
+        btnFacebook.setFragment(this);
+        btnFacebook.setReadPermissions("email", "public_profile");
+        btnFacebook.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
+            @Override
+            public void onSuccess(LoginResult loginResult) {
+                GraphRequest request = GraphRequest.newMeRequest(AccessToken.getCurrentAccessToken(), new GraphRequest.GraphJSONObjectCallback() {
+                    @Override
+                    public void onCompleted(JSONObject object, GraphResponse response) {
+                        String id, email, name;
+                        try {
+                            UserRegister model = new UserRegister();
+                            model.setFirstName(object.getString("first_name"));
+                            model.setLastName(object.getString("last_name"));
+                            model.setEmailId(object.getString("email"));
+                            model.setGender(object.getString("gender"));
+                            model.setFacebookUserId(object.getString("id"));
+
+                            Toast.makeText(getActivity(), "Facebook id : " + model.getFacebookUserId(), Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getActivity(), "Facebook First Name : " + model.getFirstName(), Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getActivity(), "Facebook Last Name : " + model.getLastName(), Toast.LENGTH_SHORT).show();
+                            PrefUtil.putbooleanPref(Constants.PRE_LOGINCHECK_FACEBOOK, true, getActivity());
+                            PrefUtil.putstringPref(Constants.PRE_FACEBOOK_ID, object.getString("id"), getActivity());
+
+                            if (model.getEmailId() != null && model.getEmailId() != "") {
+                                insertData(model);
+                            } else {
+                                SnackBar.makeLong(getActivity(), "Not Facebook Access Token");
+                            }
+
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+
+                    }
+                });
+                Bundle parameters = new Bundle();
+                parameters.putString("fields", "id,first_name,last_name,email,gender,picture");
+                request.setParameters(parameters);
+                request.executeAsync();
+
+            }
+
+            @Override
+            public void onCancel() {
+                Toast.makeText(getContext(), "Cancel", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onError(FacebookException error) {
+                Toast.makeText(getContext(), "" + error, Toast.LENGTH_SHORT).show();
+            }
+        });
+        //endregion
+        // region google
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+
+        mGoogleApiClient = new GoogleApiClient.Builder(getActivity())
+                .enableAutoManage(getActivity(), this)
+                .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
+                .build();
+        //endregion
+
+        return view;
+    }
+
+    //region Google signIn method
+    private void signIn() {
+        Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
+        startActivityForResult(signInIntent, RC_SIGN_IN);
+    }
+    //endregion
+
+    //region onActivityResult
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == RC_SIGN_IN) {
+            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+            try {
+                GoogleSignInAccount account = task.getResult(ApiException.class);
+
+                UserRegister model = new UserRegister();
+                model.setEmailId(account.getEmail());
+                model.setFirstName(account.getGivenName());
+                model.setLastName(account.getFamilyName());
+                model.setGoogleUserId(account.getId());
+                Toast.makeText(getActivity(), "Google id : " + model.getGoogleUserId(), Toast.LENGTH_SHORT).show();
+                PrefUtil.putbooleanPref(PRE_LOGINCHECK_GOOGLE, true, getActivity());
+                PrefUtil.putstringPref(PRE_GOOGLE_ID, account.getId(), getActivity());
+
+                if (model.getEmailId()!=null && model.getEmailId()!=""){
+                    insertData(model);
+                }else {
+                    SnackBar.makeLong(getActivity(), "No Google Access Token");
+                }
+            } catch (ApiException e) {
+                Toast.makeText(getActivity(), "" + e, Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            callbackManager.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    //endregion
+
+    //region onStart method
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (mGoogleApiClient.isConnected()) {
+            GoogleSignInAccount task = GoogleSignIn.getLastSignedInAccount(getActivity());
+            // Google Sign In was successful, authenticate with Firebase
+            UserRegister model = new UserRegister();
+            model.setEmailId(task.getEmail());
+            model.setFirstName(task.getGivenName());
+            model.setLastName(task.getFamilyName());
+            model.setGoogleUserId(task.getId());
+            Toast.makeText(getActivity(), "Google id : " + model.getGoogleUserId(), Toast.LENGTH_SHORT).show();
+            PrefUtil.putbooleanPref(PRE_LOGINCHECK_GOOGLE , true, getActivity());
+            PrefUtil.putstringPref(PRE_GOOGLE_ID, task.getId(), getActivity());
+
+            if (model.getEmailId()!=null && model.getEmailId()!=""){
+                insertData(model);
+            }else {
+                SnackBar.makeLong(getActivity(), "Access Not Token");
+            }
+        }
+    }
+    //endregion
+
+    //region onResume
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (mGoogleApiClient.isConnected()) {
+            GoogleSignInAccount task = GoogleSignIn.getLastSignedInAccount(getActivity());
+            // Google Sign In was successful, authenticate with Firebase
+            UserRegister model = new UserRegister();
+            model.setEmailId(task.getEmail());
+            model.setFirstName(task.getGivenName());
+            model.setLastName(task.getFamilyName());
+            model.setGoogleUserId(task.getId());
+            Toast.makeText(getActivity(), "Google id : " + model.getGoogleUserId(), Toast.LENGTH_SHORT).show();
+
+            PrefUtil.putbooleanPref(PRE_LOGINCHECK_GOOGLE, true, getActivity());
+            PrefUtil.putstringPref(PRE_GOOGLE_ID, task.getId(), getActivity());
+
+            if (model.getEmailId()!=null && model.getEmailId()!=""){
+                insertData(model);
+            }else {
+                SnackBar.makeLong(getActivity(), "Access Not Token");
+            }
+        }
+    }
+    //endregion
+
+    //region onStop method
+    @Override
+    public void onStop() {
+        super.onStop();
+        mGoogleApiClient.stopAutoManage(getActivity());
+        mGoogleApiClient.disconnect();
+    }
+    //endregion
+
+    //region onPause method
+    @Override
+    public void onPause() {
+        super.onPause();
+        mGoogleApiClient.stopAutoManage(getActivity());
+        mGoogleApiClient.disconnect();
+    }
+    //endregion
+
+    //region login Method
+    private void LogIn() {
+        String email = et_email_phone.getText().toString();
+        String password = et_password.getText().toString();
+
+        if (Constants.isCheckInternetcon(getActivity())) {
+            if (et_email_phone.getText().toString().matches("\\d+(?:\\.\\d+)?")) {
+                CheckLoginValidation(email, password, "2");
+            } else {
+                CheckLoginValidation(email, password, "1");
+                Log.i("TAG", "LogIn: " + email + "   " + password);
+            }
+        } else {
+            SnackBar.makeLong(getActivity(), "No Internet Connection. Please check your internet connection");
+        }
+    }
+    //endregion
+
+    //region condition
+    boolean condition(){
+        boolean isRight=false;
+        if (!et_email_phone.getText().toString().isEmpty() && et_email_phone.getText().toString()!=""){
+            tv_error_email_phone.setVisibility(View.GONE);
+            if (!et_password.getText().toString().isEmpty() && et_password.getText().toString()!=""){
+                tv_error_password.setVisibility(View.GONE);
+                isRight = true;
+            }else {
+                isRight = false;
+                tv_error_password.setText("Enter password.");
+                tv_error_password.setVisibility(View.VISIBLE);
+            }
+        }else {
+            isRight = false;
+            tv_error_email_phone.setText("Enter email address or mobile number.");
+            tv_error_email_phone.setVisibility(View.VISIBLE);
+        }
+        return isRight;
+    }
+    //endregion
+
+    //region Json Select  (Check login validtion)
+    public void CheckLoginValidation(final String UserId, final String Password, final String UserType) {
+
+        HashMap<String, String> hashMap = new HashMap<>();
+
+        JSONHelper helper = new JSONHelper(getActivity(), Constants.BASE_URL + Constants.SelectUserMasterByUserName+"/" + UserId + "/" + Password + "/" + UserType, hashMap, new OnAsyncLoader() {
+            @Override
+            public void onResult(String result) throws JSONException {
+                Log.i("TAG", "onResult: " + result);
+                JSONObject object = new JSONObject(result);
+
+                JSONObject object1 = object.getJSONObject("SelectUserMasterByUserNameResult");
+
+
+                if (object1.getString("UserMasterId") != "null" && object1.getString("UserMasterId") != null) {
+                    int getphone = object1.getInt("UserMasterId");
+                    if (getphone != 0) {
+                        if (UserType == "2") {
+                            if (object1.getString("IsSMSVerify").equals("True")) {
+                                Intent i = new Intent(getActivity(), HomeNavigationActivity.class);
+                                PrefUtil.putbooleanPref(Constants.PRE_LOGINCHECK, true, getActivity());
+                                PrefUtil.putstringPref(Constants.PUT_Phone_IN_PREF, UserId, getActivity());
+                                PrefUtil.putstringPref(Constants.PUT_Password_IN_PREF, Password, getActivity());
+                                startActivity(i);
+                                getActivity().finish();
+                            } else {
+                                tv_error_password.setText("You haven't Account.");
+                            }
+                        } else if (UserType == "1") {
+                            if (object1.getString("IsEmailVerify").equals("True")) {
+                                Intent i = new Intent(getActivity(), HomeNavigationActivity.class);
+                                PrefUtil.putbooleanPref(Constants.PRE_LOGINCHECK, true, getActivity());
+                                PrefUtil.putstringPref(Constants.PUT_EMAIL_IN_PREF, UserId, getActivity());
+                                PrefUtil.putstringPref(Constants.PUT_Password_IN_PREF, Password, getActivity());
+                                startActivity(i);
+                                getActivity().finish();
+                            } else {
+                                SnackBar.makeShort(getActivity(), "Invaliddd Login");
+                            }
+                        } else {
+                            SnackBar.makeLong(getActivity(), "You haven't account, Create an account");
+                        }
+                    }else {
+                        SnackBar.makeShort(getActivity(), "Invalid Login");
+                    }
+                }else {
+                    SnackBar.makeShort(getActivity(), "Invalid Login");
+                }
+            }
+        });
+        helper.execute();
+    }
+    //endregion
+
+    //region onClickMethod
+    @Override
+    public void onClick(View view) {
+        if (view.getId() == R.id.tv_forgot) {
+            //region Forgot fragment
+
+            et_email_phone.setText("");
+            et_password.setText("");
+            forgotPasswordFragment = new ForgotPasswordFragment();
+            FragmentTransaction ft = getFragmentManager().beginTransaction();
+            ft.replace(R.id.frame_login,forgotPasswordFragment,Constants.TAG_FRAGMENT);
+            ft.addToBackStack(null);
+            ft.commit();
+            //endregion
+        } else if (view.getId() == R.id.btn_login) {
+            //region login button
+            if (condition()){
+                LogIn();
+            }
+            //endregion
+        } else if (view.getId() == R.id.btn_facebook) {
+            //region facebook
+            loginButton.performClick();
+            //endregion
+        } else if (view.getId() == R.id.btn_google) {
+            //region google
+            signIn();
+            //endregion
+        }
+    }
+    //endregion
+
+    //    region Insert Data
+    public void insertData(final UserRegister model ) {
+        try {
+
+            JSONStringer stringer = new JSONStringer();
+            stringer.object();                      // {
+            stringer.key("UserMasterData");       // UserMasterData
+            stringer.object();                      // {
+
+            stringer.key("IsApp").value("0");
+            stringer.key("Email").value(model.getEmailId());
+            stringer.key("FirstName").value(model.getFirstName());
+            stringer.key("LastName").value(model.getLastName());
+            stringer.key("Gender").value(model.getGender());
+            stringer.key("GooglePlusUserId").value(model.getGoogleUserId());
+            stringer.key("FacebookUserId").value(model.getFacebookUserId());
+            stringer.key("IsSMSVerify").value("0");
+            stringer.key("IsEmailVerify").value("1");
+
+
+            stringer.endObject();                   // }
+            stringer.endObject();                   // }
+            JSONHelper helper = new JSONHelper(getActivity(), Constants.BASE_URL + InsertUserMaster, stringer, new OnAsyncLoader() {
+                @Override
+                public void onResult(String result) throws JSONException {
+                    if (BuildConfig.DEBUG) Log.i(TAG, "onResult: " + result);
+
+                    JSONObject object = new JSONObject(result);
+                    JSONObject object1 = object.getJSONObject("InsertUserMasterResult");
+                    if (object1.getInt("ErrorNumber") != -1) {
+                        startActivity(new Intent(getActivity(), HomeNavigationActivity.class));
+                        getActivity().finish();
+                    }else {
+                        SnackBar.makeLong(getActivity(), "Contact your service provider.");
+                    }
+                }
+            });
+            helper.execute();
+
+        } catch (Exception ex) {
+            if (BuildConfig.DEBUG) Log.i(TAG, "InsertRegisteredUserMaster: " + ex);
+        }
+    }
+    //endregion
+
+    //region Google ConnectionFailed
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        SnackBar.makeLong(getActivity(), "Connection Failed");
+    }
+    //endregion
+}
