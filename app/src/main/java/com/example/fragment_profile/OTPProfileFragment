@@ -1,0 +1,187 @@
+package com.example.fenil.prinil.fragment_profile;
+
+
+import android.os.Bundle;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.example.fenil.prinil.R;
+import com.example.fenil.prinil.model.UserRegister;
+import com.example.fenil.prinil.util.Constants;
+import com.example.fenil.prinil.webutil.JSONFragmentHelper;
+import com.example.fenil.prinil.webutil.JSONHelper;
+import com.example.fenil.prinil.webutil.OnAsyncLoader;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.JSONStringer;
+
+import static com.example.fenil.prinil.util.Constants.BASE_URL;
+import static com.example.fenil.prinil.util.Constants.BASE_URL1;
+
+
+/**
+ * A simple {@link Fragment} subclass.
+ */
+public class OTPProfileFragment extends Fragment implements View.OnClickListener {
+
+
+    private EditText et_otp;
+    private TextView tv_error;
+    private TextView btn_confirm;
+    private TextView tv_userId;
+    private TextView tv_resend_code;
+    private UserRegister userRegister;
+    private Bundle idbundle;
+    private String myid;
+    private boolean isEmail;
+    private boolean isForgot;
+    private String myphone;
+    private boolean isMobile;
+    private String Phone;
+    private int id;
+
+    public OTPProfileFragment() {
+        // Required empty public constructor
+    }
+
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        // Inflate the layout for this fragment
+        View view = inflater.inflate(R.layout.fragment_otp_profile, container, false);
+
+        //region toolbar
+        Toolbar toolbar = (Toolbar) view.findViewById(R.id.toolbar);
+        toolbar.setTitle("One Time Password");
+        toolbar.setTitleTextColor(getResources().getColor(R.color.white));
+        ((AppCompatActivity)getActivity()).setSupportActionBar(toolbar);
+        toolbar.setNavigationIcon(R.drawable.ic_back);
+        toolbar.setNavigationOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                getActivity().onBackPressed();
+            }
+        });
+        //endregion
+
+        //region find View (Widget)
+        et_otp = (EditText) view.findViewById(R.id.et_otp);
+        tv_error = (TextView) view.findViewById(R.id.tv_errror);
+        btn_confirm = (TextView) view.findViewById(R.id.btn_next);
+        tv_userId = (TextView) view.findViewById(R.id.tv_userId);
+        tv_resend_code = (TextView) view.findViewById(R.id.tv_resend_otp);
+        //endregion
+
+        userRegister = new UserRegister();
+
+        //region Button click Listener
+        btn_confirm.setOnClickListener(this);
+        tv_resend_code.setOnClickListener(this);
+        //endregion
+
+        getBundleData();
+
+        return view;
+    }
+
+    //region GetData (Email) Bundle through
+    void getBundleData(){
+        if (getArguments().getString(Constants.BundleProfilePhone)!= null){
+            Phone = getArguments().getString(Constants.BundleProfilePhone);
+            userRegister.setPhone(Phone);
+            Log.i("TAG", "getBundleData: Phone : "+Phone);
+            id = getArguments().getInt(Constants.BundleProfileId);
+            userRegister.setId(id);
+            Log.i("TAG", "getBundleData: ID : "+id);
+            Log.i("TAG", "getBundleData: UserRegister : "+userRegister.toString());
+        }
+    }
+    //endregion
+
+    //region GenerateOTP
+    void GenerateOTP(final String UserId){
+
+            //region Mobile
+            JSONHelper helper = new JSONHelper(getActivity(), BASE_URL + Constants.SendMessage + "/" + UserId, new OnAsyncLoader() {
+                @Override
+                public void onResult(String result) throws JSONException {
+                    Log.i("TAG", "onResult: "+result);
+
+                    if (result !=null){
+                        JSONObject object = new JSONObject(result);
+                        Constants.OneTimePassword = object.getString("SendMessageResult");
+                        Toast.makeText(getActivity(), "Phone"+Constants.OneTimePassword, Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+            helper.execute();
+            //endregion
+
+    }
+    //endregion
+
+    //region onClick method
+    @Override
+    public void onClick(View view) {
+        if (view.getId() == R.id.btn_next){
+
+            if (et_otp.getText().toString().equals(Constants.OneTimePassword)){
+                updateProfileData(userRegister.getId(),userRegister);
+            }else {
+                Toast.makeText(getActivity(),"Incorrect OTP", Toast.LENGTH_SHORT).show();
+            }
+            }else if (view.getId() == R.id.tv_resend_otp){
+                GenerateOTP(userRegister.getPhone());
+        }
+    }
+    //endregion
+
+    // region Json Update method
+    void updateProfileData(final int id, final UserRegister user) {
+        try {
+            JSONStringer stringer = new JSONStringer();
+
+            stringer.object();                      // {
+
+            stringer.key("UserMasterData");       // UserMasterData
+            stringer.object();                      // {
+
+            stringer.key("UserMasterId").value(user.getId());
+            stringer.key("Phone").value(user.getPhone());
+            stringer.key("IsSMSVerify").value("1");
+            stringer.key("IsEmailVerify").value("1");
+
+            stringer.endObject();                   // }
+            stringer.endObject();                   // }
+
+            Log.i("TAG", "updateProfileData: " + stringer.toString());
+            JSONFragmentHelper jsonHelper = new JSONFragmentHelper(getActivity(), BASE_URL + "UpdateUserMaster", stringer, new OnAsyncLoader() {
+                @Override
+                public void onResult(String result) throws JSONException {
+                    Log.i("TAG", "onResult: " + result);
+
+                    ProfileEditFragment editFragment = new ProfileEditFragment();
+                    FragmentTransaction ft = getFragmentManager().beginTransaction();
+                    ft.replace(R.id.frame_profile,editFragment);
+                    ft.commit();
+
+                }
+            });
+            jsonHelper.execute();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+    //endregion
+}
