@@ -1,0 +1,759 @@
+package com.example.fenil.prinil.fragment_profile;
+
+
+import android.annotation.SuppressLint;
+import android.app.AlertDialog;
+import android.app.DialogFragment;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.MediaStore;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
+import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
+import android.text.Editable;
+import android.text.SpannableString;
+import android.text.TextWatcher;
+import android.text.style.UnderlineSpan;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.MimeTypeMap;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.example.fenil.prinil.BuildConfig;
+import com.example.fenil.prinil.R;
+
+import com.example.fenil.prinil.actvity.ProfileActivity;
+import com.example.fenil.prinil.model.UserRegister;
+import com.example.fenil.prinil.util.Constants;
+import com.example.fenil.prinil.util.DateFormate;
+import com.example.fenil.prinil.util.PrefUtil;
+import com.example.fenil.prinil.webutil.JSONFragmentHelper;
+import com.example.fenil.prinil.webutil.JSONHelper;
+import com.example.fenil.prinil.webutil.OnAsyncLoader;
+import com.google.gson.Gson;
+import com.squareup.picasso.Picasso;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.JSONStringer;
+
+import java.io.File;
+import java.util.Calendar;
+
+import de.hdodenhof.circleimageview.CircleImageView;
+
+import static android.Manifest.permission.CAMERA;
+import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
+import static android.app.Activity.RESULT_OK;
+import static com.example.fenil.prinil.util.Constants.BASE_URL;
+import static com.example.fenil.prinil.util.Constants.encodeToBase64;
+
+
+/**
+ * A simple {@link Fragment} subclass.
+ */
+public class ProfileEditFragment extends Fragment implements RadioGroup.OnCheckedChangeListener, View.OnClickListener {
+
+
+    boolean isChecked;
+    private UserRegister userRegister;
+    private String Mobile;
+    private String Email;
+    private boolean isGoogle;
+    private boolean isFacebook;
+    private String GoogleId;
+    private String FacebookId;
+    private String UserType;
+    private String Password;
+    private String UserId;
+    private Button btn_save;
+    private RadioButton female;
+    private RadioButton male;
+    private RadioGroup radio_group;
+    private EditText edit_bday;
+    private EditText edit_email;
+    private TextView txt_verify;
+    private TextView img_verified;
+    private EditText edit_mobile;
+    private EditText edit_lname;
+    private EditText edit_fname;
+    private CircleImageView image_profile;
+    private String gender = "";
+    private boolean selectCamera;
+    private boolean selectStorage;
+    private String filePath;
+    private String extension;
+    private Bitmap yourSelectedImage;
+    private boolean flag;
+    private Bitmap imgurl;
+    private String FirstName;
+    private String Gender;
+    private String LastName;
+    private String date;
+    private int id;
+    private UserRegister user;
+    private String imageName;
+    private String imageString;
+    private boolean isSMSverified;
+    private Toolbar toolbar;
+    String strPhoneVerified;
+    boolean isVerify;
+
+    public ProfileEditFragment() {
+        // Required empty public constructor
+    }
+
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        // Inflate the layout for this fragment
+
+        View view = inflater.inflate(R.layout.fragment_profile_edit, container, false);
+
+        //region toolbar
+        Toolbar toolbar = (Toolbar) view.findViewById(R.id.toolbar);
+        toolbar.setTitle("Edit Profile");
+        toolbar.setTitleTextColor(getResources().getColor(R.color.white));
+        ((AppCompatActivity)getActivity()).setSupportActionBar(toolbar);
+        toolbar.setNavigationIcon(R.drawable.ic_back);
+        toolbar.setNavigationOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                getActivity().onBackPressed();
+            }
+        });
+        //endregion
+
+        //region Find  View (Widget)
+        image_profile = (CircleImageView) view.findViewById(R.id.image_profile);
+        edit_fname = (EditText) view.findViewById(R.id.edit_fname);
+        edit_lname = (EditText) view.findViewById(R.id.edit_lname);
+        edit_mobile = (EditText) view.findViewById(R.id.edit_mobile);
+        img_verified = (TextView) view.findViewById(R.id.img_verified);
+        txt_verify = (TextView) view.findViewById(R.id.txt_verify);
+        edit_email = (EditText) view.findViewById(R.id.edit_email);
+        edit_bday = (EditText) view.findViewById(R.id.edit_bday);
+        radio_group = (RadioGroup) view.findViewById(R.id.radio_group);
+        male = (RadioButton) view.findViewById(R.id.male);
+        female = (RadioButton) view.findViewById(R.id.female);
+        btn_save = (Button) view.findViewById(R.id.btn_save);
+        //endregion
+
+        //region button click listener
+        btn_save.setOnClickListener(this);
+        image_profile.setOnClickListener(this);
+        edit_bday.setOnClickListener(this);
+        radio_group.setOnCheckedChangeListener(this);
+        //endregion
+
+        userRegister = new UserRegister();
+        getPrefData();
+        btn_save.setVisibility(View.GONE);
+
+        //region verify click listener
+        edit_mobile.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                String verifiedMobile = userRegister.getPhone();
+                if (s.toString().isEmpty()) {
+                    txt_verify.setVisibility(View.GONE);
+                    img_verified.setVisibility(View.GONE);
+                } else if (verifiedMobile.equalsIgnoreCase(s.toString())) {
+                    if (userRegister.getPhoneVerify().equals("True")) {         //todo : mobile verified is true
+                        img_verified.setVisibility(View.VISIBLE);
+                        txt_verify.setVisibility(View.GONE);
+                        isSMSverified = true;
+                        setupNotVerifyed(true);
+                        isChecked = true;
+                    } else {
+                        img_verified.setVisibility(View.GONE);                    //todo : mobile is not verified
+                        txt_verify.setVisibility(View.VISIBLE);
+                        isSMSverified = false;
+                        txt_verify.setOnClickListener(new View.OnClickListener() {
+                            @Override
+                            public void onClick(View view) {
+                                SelectRegisterUser(edit_mobile.getText().toString());
+                            }
+                        });
+                        setupNotVerifyed(false);
+                        isChecked = false;
+                    }
+//                    strPhoneVerify = "1";
+                } else {
+                    if (s.toString().matches("^[0-9]{10}$")) {
+                        if (s.toString().isEmpty()) {
+                            txt_verify.setVisibility(View.GONE);
+                            img_verified.setVisibility(View.GONE);
+                        } else {                                                    //todo : mobile is not verified
+                            img_verified.setVisibility(View.GONE);
+                            txt_verify.setVisibility(View.VISIBLE);
+                            isSMSverified = false;
+                            txt_verify.setOnClickListener(new View.OnClickListener() {
+                                @Override
+                                public void onClick(View view) {
+                                    SelectRegisterUser(edit_mobile.getText().toString());
+                                }
+                            });
+                            setupNotVerifyed(false);
+                            isChecked = false;
+                        }
+                    } else {
+                        txt_verify.setVisibility(View.GONE);
+                        img_verified.setVisibility(View.GONE);
+                    }
+                }
+            }
+        });
+        //endregion
+        setHasOptionsMenu(true);
+
+        return view;
+    }
+
+    //region TODO :- Setup  Not Verified
+    void setupNotVerifyed(boolean isMobile) {
+        SpannableString content = new SpannableString("Verify");
+        content.setSpan(new UnderlineSpan(), 0, content.length(), 0);
+        if (isMobile) {
+            strPhoneVerified = "1";
+        } else {
+            strPhoneVerified = "0";
+        }
+    }
+    //endregion
+
+    //region getTextValue
+    void getTextValues() {
+        FirstName = edit_fname.getText().toString();
+        LastName = edit_lname.getText().toString();
+        Email = edit_email.getText().toString();
+        Mobile = edit_mobile.getText().toString();
+        date = edit_bday.getText().toString();
+        Gender = gender;
+        id = userRegister.getId();
+
+
+    }
+    //endregion
+
+    //region getPrefData
+    void getPrefData() {
+        try {
+            Mobile = PrefUtil.getstringPref(Constants.PUT_Phone_IN_PREF, getActivity());
+            Email = PrefUtil.getstringPref(Constants.PUT_EMAIL_IN_PREF, getActivity());
+            isGoogle = PrefUtil.getbooleanPref(Constants.PRE_LOGINCHECK_GOOGLE, getActivity());
+            isFacebook = PrefUtil.getbooleanPref(Constants.PRE_LOGINCHECK_FACEBOOK, getActivity());
+            GoogleId = PrefUtil.getstringPref(Constants.PRE_GOOGLE_ID, getActivity());
+            FacebookId = PrefUtil.getstringPref(Constants.PRE_FACEBOOK_ID, getActivity());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        if (Constants.isCheckInternetcon(getActivity())) {
+            //region online data
+
+            if (Mobile != null && Mobile != "") {
+                UserType = "2";
+                Password = PrefUtil.getstringPref(Constants.PUT_Password_IN_PREF, getActivity());
+                UserId = Mobile;
+                SetDetails(UserId, Password, UserType);
+            } else if (Email != null && Email != "") {
+                UserType = "1";
+                Password = PrefUtil.getstringPref(Constants.PUT_Password_IN_PREF, getActivity());
+                UserId = Email;
+                SetDetails(UserId, Password, UserType);
+            } else if (isGoogle) {
+                UserType = "4";
+                UserId = GoogleId;
+                Password = "0";
+                SetDetails(UserId, Password, UserType);
+            } else if (isFacebook) {
+                UserType = "3";
+                UserId = FacebookId;
+                Password = "0";
+                SetDetails(UserId, Password, UserType);
+            } else {
+
+                edit_email.setText(userRegister.getEmailId());
+                edit_mobile.setText(userRegister.getPhone());
+                if (userRegister.getPhone().isEmpty()) {
+                    img_verified.setVisibility(View.GONE);
+                    txt_verify.setVisibility(View.GONE);
+//                    userRegister.setPhoneVerify("False");
+                }
+                edit_fname.setText(userRegister.getFirstName());
+                edit_lname.setText(userRegister.getLastName());
+                edit_bday.setText(userRegister.getBirthday());
+                if (userRegister.getGender() != null && userRegister.getGender() != "" && userRegister.getGender().equals("Male")) {
+                    male.setChecked(true);
+                } else if (userRegister.getGender() != null && userRegister.getGender() != "" && userRegister.getGender().equals("Female")) {
+                    female.setChecked(true);
+                }
+            }
+            //endregion
+        }else {
+            //region offline data
+            Gson gson = new Gson();
+            String json = PrefUtil.getstringPref(Constants.Put_Model_In_PREF, getActivity());
+            userRegister = gson.fromJson(json, UserRegister.class);
+
+            edit_fname.setText(userRegister.getFirstName());
+            edit_lname.setText(userRegister.getLastName());
+            edit_mobile.setText(userRegister.getPhone());
+            edit_email.setText(userRegister.getEmailId());
+            edit_bday.setText(userRegister.getBirthday());
+            if (userRegister.getGender() != null) {
+                if (userRegister.getGender().equals("Male")) {
+                    male.setChecked(true);
+                } else if (userRegister.getGender().equals("Female")) {
+                    female.setChecked(true);
+                }
+            }
+            image_profile.setImageResource(R.drawable.user);
+
+            //endregion
+        }
+    }
+    //endregion
+
+    //  region Json Select Method (set value in Model class)
+    public void SetDetails(final String UserId, final String Password, final String UserType) {
+
+
+        JSONHelper helper = new JSONHelper(getActivity(), BASE_URL + Constants.SelectUserMasterByUserName + "/" + UserId + "/" + Password + "/" + UserType, new OnAsyncLoader() {
+            @Override
+            public void onResult(String result) throws JSONException {
+                Log.i("TAG", "onResult: " + result);
+                userRegister = new UserRegister();
+
+                JSONObject object = new JSONObject(result);
+
+                JSONObject object1 = object.getJSONObject("SelectUserMasterByUserNameResult");
+
+                int getphone = object1.getInt("UserMasterId");
+
+                if (getphone != 0) {
+
+                    //region set Data in Model class
+                    userRegister.setBirthday(object1.getString("DateOfBirth"));
+                    userRegister.setEmailId(object1.getString("Email"));
+                    userRegister.setFirstName(object1.getString("FirstName"));
+                    userRegister.setLastName(object1.getString("LastName"));
+                    userRegister.setGender(object1.getString("Gender"));
+                    userRegister.setPhone(object1.getString("Phone"));
+//                    user.setProfilePhysicalBytes(object1.getString("ProfileImageImageNameBytes"));
+                    userRegister.setId(object1.getInt("UserMasterId"));
+                    userRegister.setProfilePhysicalBytes(object1.getString("ProfileImageImageNameBytes"));
+                    userRegister.setEmailVerify(object1.getString("IsEmailVerify"));
+                    userRegister.setPhoneVerify(object1.getString("IsSMSVerify"));
+
+                    if (!userRegister.getProfilePhysicalBytes().equals("") && userRegister.getProfilePhysicalBytes() != null && userRegister.getProfilePhysicalBytes() != "null") {
+                        Picasso.with(getActivity()).load(userRegister.getProfilePhysicalBytes()).placeholder(R.drawable.user).into(image_profile);
+                    } else {
+                        image_profile.setImageResource(R.drawable.user);
+                    }
+                    //endregion
+                    //region set Data in EditText
+                    edit_fname.setText(userRegister.getFirstName());
+                    edit_lname.setText(userRegister.getLastName());
+                    edit_mobile.setText(userRegister.getPhone());
+
+                    if (userRegister.getPhone().isEmpty()) {       // todo : phone is empty
+                        img_verified.setVisibility(View.GONE);
+                        txt_verify.setVisibility(View.GONE);
+                    }
+                    if (!userRegister.getBirthday().isEmpty()) {
+                        edit_bday.setText(userRegister.getBirthday());
+                    }
+                    if (!userRegister.getGender().isEmpty()) {
+                        if (userRegister.getGender().equals("Male")) {
+                            male.setChecked(true);
+                        } else if (userRegister.getGender().equals("Female")) {
+                            female.setChecked(true);
+                        }
+                    }
+                    if (userRegister.getPhoneVerify().equals("True")) {  //todo : if phone is verified
+                        img_verified.setVisibility(View.VISIBLE);
+                        txt_verify.setVisibility(View.GONE);
+                        setupNotVerifyed(true);
+                        isChecked = true;
+                    } else {
+                        if (!userRegister.getPhone().isEmpty()) {    //todo : phone is not empty and not verified
+                            txt_verify.setVisibility(View.VISIBLE);
+                            img_verified.setVisibility(View.GONE);
+                            isSMSverified = false;
+                            setupNotVerifyed(false);
+                            isChecked = false;
+                        }
+                    }
+                    String Email = userRegister.getEmailId();
+                    edit_email.setText(Email);
+                    //endregion
+
+
+                    //region offline put data
+                    try {
+                        Gson gson = new Gson();
+                        String json = gson.toJson(userRegister);
+                        PrefUtil.putstringPref(Constants.Put_Model_In_PREF, json, getActivity());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    //endregion
+
+                } else {
+
+                }
+            }
+        });
+        helper.execute();
+    }
+    //endregion
+
+    // region Json Update method
+    void updateProfileData(final int id, final UserRegister user) {
+        try {
+            JSONStringer stringer = new JSONStringer();
+
+            stringer.object();                      // {
+
+            stringer.key("UserMasterData");       // UserMasterData
+            stringer.object();                      // {
+
+            stringer.key("ProfileImageImageNameBytes").value(user.getProfilePhysicalBytes());
+            stringer.key("ProfileImage").value(user.getProfileName());
+
+            stringer.key("UserMasterId").value(user.getId());
+            stringer.key("FirstName").value(user.getFirstName());
+            stringer.key("LastName").value(user.getLastName());
+            stringer.key("DateOfBirth").value(user.getBirthday());
+            stringer.key("Gender").value(user.getGender());
+            stringer.key("Email").value(user.getEmailId());
+            stringer.key("Phone").value(user.getPhone());
+            stringer.key("IsEmailVerify").value("1");
+            if (user.getPhoneVerify() != null && !user.getPhoneVerify().isEmpty()) {
+                if (user.getPhoneVerify().equals("True")) {
+                    stringer.key("IsSMSVerify").value("1");
+                } else if (user.getPhoneVerify().equals("False")) {
+                    stringer.key("IsSMSVerify").value("0");
+                }
+            }
+
+            stringer.endObject();                   // }
+            stringer.endObject();                   // }
+
+            Log.i("TAG", "updateProfileData: " + stringer.toString());
+            JSONFragmentHelper jsonHelper = new JSONFragmentHelper(getActivity(), BASE_URL + "UpdateUserMaster", stringer, new OnAsyncLoader() {
+                @Override
+                public void onResult(String result) throws JSONException {
+                    Log.i("TAG", "onResult: " + result);
+
+
+                }
+            });
+            jsonHelper.execute();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+    //endregion
+
+    //region radioButton
+    @Override
+    public void onCheckedChanged(RadioGroup radioGroup, int i) {
+        switch (i) {
+            case R.id.male:
+                gender = "Male";
+                break;
+            case R.id.female:
+                gender = "Female";
+                break;
+        }
+    }
+
+    //endregion
+
+    //region onClick Method
+    @Override
+    public void onClick(View view) {
+        if (view.getId() == R.id.btn_save) {
+
+        } else if (view.getId() == R.id.edit_bday) {
+            DialogFragment dialogFragment = new DateFormate();
+            dialogFragment.show(getActivity().getFragmentManager(), "DatePicker");
+        } else if (view.getId() == R.id.image_profile) {
+            selectImage();
+        }
+    }
+    //endregion
+
+    //region oncreateOption menu
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+
+        //inflater.inflate(R.menu.profile_ok_menu, menu);
+        menu.findItem(R.id.edit).setVisible(false);
+        menu.findItem(R.id.save).setVisible(true);
+        super.onCreateOptionsMenu(menu, inflater);
+    }
+
+    @SuppressLint("WrongConstant")
+    public void save(){
+        getTextValues();
+
+        if (Constants.isValidMobile(Mobile)) {
+            user = new UserRegister();
+            user.setEmailId(Email);
+            user.setBirthday(date);
+            user.setPhone(Mobile);
+            user.setGender(Gender);
+            user.setFirstName(FirstName);
+            user.setLastName(LastName);
+            user.setId(id);
+            Calendar calendar = Calendar.getInstance();
+            imageName = "img-" + calendar.getTimeInMillis();
+            Bitmap bitmapImage = ((BitmapDrawable) image_profile.getDrawable()).getBitmap();
+            imageString = encodeToBase64(bitmapImage, Bitmap.CompressFormat.JPEG, 100);
+            user.setProfileName(imageName);
+            user.setProfilePhysicalBytes(imageString);
+            user.setEmailVerify("1");
+            if (img_verified.getVisibility() == 1){
+                user.setPhoneVerify("True");
+            }else{
+                user.setPhoneVerify("False");
+            }
+            if (id != 0) {
+                updateProfileData(id, user);
+
+                getActivity().getSupportFragmentManager().popBackStack();
+
+            }
+        } else if (Mobile.isEmpty()) {
+            user = new UserRegister();
+            user.setEmailId(Email);
+            user.setBirthday(date);
+            user.setPhone(Mobile);
+            user.setGender(Gender);
+            user.setFirstName(FirstName);
+            user.setLastName(LastName);
+            user.setId(id);
+            Calendar calendar = Calendar.getInstance();
+            imageName = "img-" + calendar.getTimeInMillis();
+            Bitmap bitmapImage = ((BitmapDrawable) image_profile.getDrawable()).getBitmap();
+            imageString = encodeToBase64(bitmapImage, Bitmap.CompressFormat.JPEG, 100);
+            user.setProfileName(imageName);
+            user.setProfilePhysicalBytes(imageString);
+            user.setEmailVerify("1");
+            user.setPhoneVerify(userRegister.getPhoneVerify());
+            if (id != 0) {
+                updateProfileData(id, user);
+                getActivity().getSupportFragmentManager().popBackStack();
+            }
+        } else {
+            edit_mobile.setError("Enter valid mobile number.");
+
+        }
+    }
+    //endregion
+
+    //region Json Email ExistOrNot
+    private void SelectRegisterUser(final String Phone) {
+
+        JSONHelper helper = new JSONHelper(getActivity(), Constants.BASE_URL + Constants.SelectUserMasterByPhoneIsExistOrNot + "/" + Phone, new OnAsyncLoader() {
+            @Override
+            public void onResult(String result) throws JSONException {
+                Log.i("TAG", "onResult: " + result);
+
+                JSONObject object = new JSONObject(result);
+                boolean isExist = object.getBoolean("SelectUserMasterByPhoneIsExistOrNotResult");
+
+                if (isExist) {
+                    GenerateOTP(Phone);
+                } else {
+                    Toast.makeText(getActivity(), "Your mobile number already exist", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        helper.execute();
+    }
+    //endregion
+
+    //region GenerateOTP
+    void GenerateOTP(final String UserId) {
+        //region Mobile
+        JSONHelper helper = new JSONHelper(getActivity(), Constants.BASE_URL + Constants.SendMessage + "/" + UserId, new OnAsyncLoader() {
+            @Override
+            public void onResult(String result) throws JSONException {
+                Log.i("TAG", "onResult: " + result);
+
+                if (result != null) {
+                    JSONObject object = new JSONObject(result);
+                    Constants.OneTimePassword = object.getString("SendMessageResult");
+                    OTPProfileFragment fragment = new OTPProfileFragment();
+                    Bundle bundle = new Bundle();
+                    bundle.putString(Constants.BundleProfilePhone, UserId);
+                    bundle.putInt(Constants.BundleProfileId, userRegister.getId());
+                    fragment.setArguments(bundle);
+                    FragmentTransaction ft = getFragmentManager().beginTransaction();
+                    ft.replace(R.id.frame_profile, fragment);
+                    /*ft.addToBackStack(null);*/
+                    ft.commit();
+                    Toast.makeText(getActivity(), "Phone" + Constants.OneTimePassword, Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        helper.execute();
+        //endregion
+    }
+    //endregion
+
+    //region Select Image
+    private void selectImage() {
+        final CharSequence[] items = {"Take Photo", "Choose from Gallary", "Cancel"};
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+        builder.setTitle("Add Photo!");
+        builder.setItems(items, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int item) {
+                if (items[item].equals("Take Photo")) {
+                    selectCamera = true;
+                    if (checkPermission()) {
+                        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                        startActivityForResult(intent, 1);
+                    } else {
+                        requestPermission();
+                    }
+                } else if (items[item].equals("Choose from Gallary")) {
+                    selectStorage = true;
+                    if (checkPermission()) {
+                        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                        intent.setType("image/*");
+                        startActivityForResult(Intent.createChooser(intent, "Select File"), 0);
+                    } else {
+                        requestPermission();
+                    }
+                } else if (items[item].equals("Cancel")) {
+                    dialog.dismiss();
+                }
+            }
+        });
+        builder.show();
+    }
+
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (BuildConfig.DEBUG) Log.e("requestCode", requestCode + " test");
+        switch (requestCode) {
+            case 0:
+
+                if (resultCode == RESULT_OK) {
+                    Uri selectedImage = data.getData();
+                    String[] filePathColumn = {MediaStore.Images.Media.DATA};
+
+                    Cursor cursor = getActivity().getContentResolver().query(selectedImage,
+                            filePathColumn, null, null, null);
+                    cursor.moveToFirst();
+
+                    int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+                    filePath = cursor.getString(columnIndex);
+                    extension = MimeTypeMap.getFileExtensionFromUrl(filePath);
+                    cursor.close();
+                    // Convert file path into bitmap image using below line.
+                    yourSelectedImage = BitmapFactory.decodeFile(new File(filePath).getAbsolutePath());
+                    image_profile.setImageBitmap(yourSelectedImage);
+                    if (BuildConfig.DEBUG) Log.e("State", filePath + "_test");
+                    flag = true;
+                }
+                break;
+            case 1:
+
+                if (resultCode == RESULT_OK) {
+                    if (requestCode == 1) {
+                        imgurl = (Bitmap) data.getExtras().get("data");
+                        image_profile.setImageBitmap(imgurl);
+                        flag = true;
+                    }
+                }
+        }
+
+    }
+    //endregion
+
+    //region Permition
+    private boolean checkPermission() {
+        int result = ContextCompat.checkSelfPermission(getActivity(), CAMERA);
+        int result2 = ContextCompat.checkSelfPermission(getActivity(), READ_EXTERNAL_STORAGE);
+        return result == PackageManager.PERMISSION_GRANTED && result2 == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestPermission() {
+        ActivityCompat.requestPermissions(getActivity(), new String[]{CAMERA, READ_EXTERNAL_STORAGE}, 200);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        switch (requestCode) {
+            case 200:
+                if (grantResults.length > 0) {
+
+                    boolean cameraAccepted = grantResults[0] == PackageManager.PERMISSION_GRANTED;
+                    boolean StorageAccepted = grantResults[1] == PackageManager.PERMISSION_GRANTED;
+
+                    if (selectCamera) {
+                        if (cameraAccepted) {
+                            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                            startActivityForResult(intent, 1);
+                        } else {
+                            Toast.makeText(getActivity(), "App need camera permition to capture image.", Toast.LENGTH_SHORT).show();
+                        }
+                    } else if (selectStorage) {
+                        if (StorageAccepted) {
+                            Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                            intent.setType("image/*");
+                            startActivityForResult(Intent.createChooser(intent, "Select File"), 0);
+                        } else {
+                            Toast.makeText(getActivity(), "App need Storage permission to receive image from file manager.", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+
+                break;
+        }
+    }
+//endregion
+
+}
